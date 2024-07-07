@@ -104,27 +104,27 @@ trait Start
             return $this->fullGetSelf();
         }
         if ($this->getAuthorization() === API::NOT_LOGGED_IN) {
-            if (isset($_POST['phone_number'])) {
+            if (request()->phone_number) {
                 $this->webPhoneLogin();
-            } elseif (isset($_POST['token'])) {
+            } elseif (request()->token) {
                 $this->webBotLogin();
             } else {
                 $this->webEcho();
             }
         } elseif ($this->getAuthorization() === \danog\MadelineProto\API::WAITING_CODE) {
-            if (isset($_POST['phone_code'])) {
+            if (isset(request()->phone_code)) {
                 $this->webCompletePhoneLogin();
             } else {
                 $this->webEcho(Lang::$current_lang['loginNoCode']);
             }
         } elseif ($this->getAuthorization() === \danog\MadelineProto\API::WAITING_PASSWORD) {
-            if (isset($_POST['password'])) {
+            if (request()->password) {
                 $this->webComplete2faLogin();
             } else {
                 $this->webEcho(Lang::$current_lang['loginUserPassWeb']);
             }
         } elseif ($this->getAuthorization() === \danog\MadelineProto\API::WAITING_SIGNUP) {
-            if (isset($_POST['first_name'])) {
+            if (isset(request()->first_name)) {
                 $this->webCompleteSignup();
             } else {
                 $this->webEcho(Lang::$current_lang['loginNoName']);
@@ -139,7 +139,7 @@ trait Start
     private function webPhoneLogin(): void
     {
         try {
-            $this->phoneLogin($_POST['phone_number']);
+            $this->phoneLogin(request()->phone_number);
             $this->webEcho();
         } catch (RPCErrorException $e) {
             $this->webEcho(sprintf(Lang::$current_lang['apiError'], $e->getMessage()));
@@ -150,7 +150,7 @@ trait Start
     private function webCompletePhoneLogin(): void
     {
         try {
-            $this->completePhoneLogin($_POST['phone_code']);
+            $this->completePhoneLogin(request()->phone_code);
             $this->webEcho();
         } catch (RPCErrorException $e) {
             $this->webEcho(sprintf(Lang::$current_lang['apiError'], $e->getMessage()));
@@ -161,7 +161,7 @@ trait Start
     private function webComplete2faLogin(): void
     {
         try {
-            $this->complete2faLogin($_POST['password']);
+            $this->complete2faLogin(request()->password);
             $this->webEcho();
         } catch (RPCErrorException $e) {
             $this->webEcho(sprintf(Lang::$current_lang['apiError'], $e->getMessage()));
@@ -172,7 +172,7 @@ trait Start
     private function webCompleteSignup(): void
     {
         try {
-            $this->completeSignup($_POST['first_name'], $_POST['last_name'] ?? '');
+            $this->completeSignup(request()->first_name, request()->last_name ?? '');
             $this->webEcho();
         } catch (RPCErrorException $e) {
             $this->webEcho(sprintf(Lang::$current_lang['apiError'], $e->getMessage()));
@@ -183,7 +183,7 @@ trait Start
     private function webBotLogin(): void
     {
         try {
-            $this->botLogin($_POST['token']);
+            $this->botLogin(request()->token);
             $this->webEcho();
         } catch (RPCErrorException $e) {
             $this->webEcho(sprintf(Lang::$current_lang['apiError'], $e->getMessage()));
@@ -203,21 +203,11 @@ trait Start
         $form = null;
         $trailer = '';
         if ($auth === API::NOT_LOGGED_IN) {
-            if (isset($_POST['type'])) {
-                if ($_POST['type'] === 'phone') {
-                    $title = str_replace(':', '', Lang::$current_lang['loginUser']);
-                    $phone = htmlentities(Lang::$current_lang['loginUserPhoneWeb']);
-                    $form = "<input type='text' name='phone_number' placeholder='$phone' required/>";
-                } else {
-                    $title = str_replace(':', '', Lang::$current_lang['loginBot']);
-                    $token = htmlentities(Lang::$current_lang['loginBotTokenWeb']);
-                    $form = "<input type='text' name='token' placeholder='$token' required/>";
-                }
-            } elseif (isset($_GET['waitQrCodeOrLogin']) || isset($_GET['getQrCode'])) {
+            if (request()->waitQrCodeOrLogin || request()->getQrCode) {
                 header('Content-type: application/json');
                 try {
                     $qr = $this->qrLogin();
-                    if (isset($_GET['waitQrCodeOrLogin'])) {
+                    if (request()->waitQrCodeOrLogin) {
                         $qr = $qr?->waitForLoginOrQrCodeExpiration(Tools::getTimeoutCancellation(5.0));
                     }
                 } catch (CancelledException) {
@@ -226,16 +216,17 @@ trait Start
                 if ($qr) {
                     $result = [
                         'logged_in' => false,
-                        'svg' => $qr->getQRSvg(400, 2),
+                        'svg' => $qr->getQRSvg(300, 2),
                     ];
                 } else {
                     $result = [
                         'logged_in' => true,
                     ];
                 }
-                getOutputBufferStream()->write(json_encode($result));
+                throw new \Exception('Wait qrLogin ///' . json_encode($result));
                 return;
             } else {
+                throw new \Exception('Need login');
                 $title = Lang::$current_lang['loginChoosePromptWeb'];
                 $optionBot = htmlentities(Lang::$current_lang['loginOptionBot']);
                 $optionUser = htmlentities(Lang::$current_lang['loginOptionUser']);
@@ -277,6 +268,7 @@ trait Start
                 $this->getHint(),
             ));
             $form = "<input type='password' name='password' placeholder='$hint' required/>";
+            throw new \Exception('Need password ///' . $this->getHint());
         } elseif ($auth === \danog\MadelineProto\API::WAITING_SIGNUP) {
             $title = Lang::$current_lang['signupWeb'];
             $firstName = Lang::$current_lang['signupFirstNameWeb'];

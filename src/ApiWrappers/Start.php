@@ -84,6 +84,7 @@ trait Start
      */
     private function webAPIEcho(Settings $settings, string $message = ''): void
     {
+        throw new \Exception('Need api_id and api_hash');
         $message = htmlentities($message);
         $title = MTProto::getWebWarnings();
         $title .= htmlentities(Lang::$current_lang['apiManualWeb']);
